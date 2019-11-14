@@ -324,7 +324,7 @@ func (c chinaDNS) selectPacket(conn *net.UDPConn, remoteAddr *net.UDPAddr, local
 			m := new(dns.Msg)
 			err = m.Unpack(remoteBuf)
 			if err != nil {
-				log.Printf("ERROR: dns server addr is (%s) errmsg is (%s)\n", dnsAddr, err)
+				log.Printf("ERROR: dns server addr is (%s) errmsg is (%s)\n", dnsA, err)
 				return
 			}
 
@@ -364,6 +364,11 @@ func (c chinaDNS) selectPacket(conn *net.UDPConn, remoteAddr *net.UDPAddr, local
 				}
 			}
 
+
+			if isCname == true {
+						packet <- dnsPacket{"cname", remoteBuf, debugString}
+			} else {
+
 			if flag {
 				// this is a china ip
 
@@ -374,13 +379,15 @@ func (c chinaDNS) selectPacket(conn *net.UDPConn, remoteAddr *net.UDPAddr, local
 				//    if ((dnsAddr[2] == dnsB) || (dnsAddr[3] == dnsB)){
 				//   packet <- dnsPacket{"chinese", remoteBuf, debugString}
 				//    }
-				if is_chn_dns_server {
-					packet <- dnsPacket{"chinese", remoteBuf, debugString}
-				} else {
-					log.Printf("ignore chn ip %v\n", debugString)
+				//if is_chn_dns_server {
+				//	packet <- dnsPacket{"chinese", remoteBuf, debugString}
+				//} else {
+					//log.Printf("ignore chn ip %v\n", debugString)
 
-					//packet <- dnsPacket{"chinese", remoteBuf, debugString}
-				}
+				//	packet <- dnsPacket{"chinese", remoteBuf, debugString}
+				//}
+
+				packet <- dnsPacket{"chinese", remoteBuf, debugString}
 
 			} else {
 
@@ -388,26 +395,37 @@ func (c chinaDNS) selectPacket(conn *net.UDPConn, remoteAddr *net.UDPAddr, local
 
 				if is_chn_dns_server == true {
 					// only process domestic dns return CNAME case. ignore Class A case
-					if isCname == true {
-						packet <- dnsPacket{"cname", remoteBuf, debugString}
+					//if isCname == true {
+					//	packet <- dnsPacket{"cname", remoteBuf, debugString}
+					//} else {
+					//
+					
+					if strings.Contains(debugString, "apple.com") {
+						packet <- dnsPacket{"apple", remoteBuf, debugString}
 					} else {
 						log.Printf("ignore oversea ip %v\n", debugString)
 					}
+					
+
+				    
+					//}
 
 				} else {
 
-					if isCname == true {
-						packet <- dnsPacket{"cname", remoteBuf, debugString}
-					} else {
+					//if isCname == true {
+					//	packet <- dnsPacket{"cname", remoteBuf, debugString}
+					//} else {
 						packet <- dnsPacket{"oversea", remoteBuf, debugString}
-					}
+					//}
 				}
 			}
+
+		    }
 		}(dnsA)
 	}
 
 	go func() {
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * 5)
 		timeout <- true
 	}()
 	p := dnsPacket{}
