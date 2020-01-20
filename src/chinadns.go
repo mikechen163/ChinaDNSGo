@@ -69,8 +69,8 @@ func strIp2Int(ipstr string) (uint32, error) {
 }
 
 func format_domain_name(s string) string{
-	s2 := strings.Trim(s, " ")
-	str := strings.Trim(s2, ".lan")
+	str := strings.Trim(s, " ")
+	//str := strings.Trim(s2, ".lan")
 
     
    
@@ -273,7 +273,7 @@ func TestnewRouteList() {
 }
 
 
-const MAX_BUFF int = 50
+const MAX_BUFF int = 100
 const BUFF_SIZE int = 512
 type chinaDNS struct {
 	route *RouteList
@@ -297,6 +297,10 @@ func newChinaDNS(fname string, sa string) *chinaDNS {
     
     for i := 0; i < MAX_BUFF; i++ {
     	gbuffer[i] = make([]byte, BUFF_SIZE)
+
+    	for j := 0; j< 100; j++ {
+        memsetRepeat(gbuffer[i], 0)
+        }
     }
 
     gkeyword[0] ="googleads.g.doubleclick.net" 
@@ -441,7 +445,7 @@ func getParameter(localBuf []byte) string {
 
 func proxy(dohserver string, conn *net.UDPConn, addr *net.UDPAddr, raw []byte) {
 	enc := base64.RawURLEncoding.EncodeToString(raw)
-	log.Printf("dohserver: %s %v", dohserver,getParameter(raw[13:]))
+	//log.Printf("dohserver: %s %v", dohserver,getParameter(raw[13:]))
 	url := fmt.Sprintf("%s?dns=%s", dohserver, enc)
 	r, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -493,6 +497,15 @@ func (c chinaDNS) selectPacket(conn *net.UDPConn, remoteAddr *net.UDPAddr, local
 
      var send_ok int
      send_ok = 0
+
+     len2 := len(localBuf)
+     if len2 == 0 {
+     	return
+     }
+
+     //for _, dnsA := range dnsAddr {
+     //	log.Printf("dns server address: %v", dnsA)
+     //}
 
 	for _, dnsA := range dnsAddr {
 
@@ -549,7 +562,7 @@ func (c chinaDNS) selectPacket(conn *net.UDPConn, remoteAddr *net.UDPAddr, local
 			cliConn.SetReadDeadline(time.Now().Add(2 * time.Second))
 			_, err = cliConn.Read(remoteBuf)
 			if err != nil {
-				log.Printf("read udp fail: %s %v\n",inputPara, err)
+				//log.Printf("read udp fail: %s %v\n",inputPara, err)
 				return
 			}
 
@@ -671,10 +684,11 @@ func (c chinaDNS) selectPacket(conn *net.UDPConn, remoteAddr *net.UDPAddr, local
 		}(dnsA)
 	}
 
-	// go func() {
+	//go func() {
 	// 	time.Sleep(time.Second * 5)
 		
-	// }()
+	//}()
+
 	// 	p := dnsPacket{}
 	// 	select {
 
@@ -694,6 +708,33 @@ func (c chinaDNS) selectPacket(conn *net.UDPConn, remoteAddr *net.UDPAddr, local
 }
 
 //gkeyword :=["googleads.g.doubleclick.net","adservice.google.com"]
+
+func deal_tail_lan(b []byte,n int) bool {
+	//fmt.Println("size = %d, %v %d ", n,localBuf,localBuf[n-4])
+    //str := string(localBuf[13:])
+     //fmt.Println("DEAL:   localbuf ", str)
+     // if strings.HasSuffix(str,"lan"){
+     // 	fmt.Println("size = %d, %v  ", n,localBuf)
+     // 	localBuf[n-4] = 0
+     // }
+    //fmt.Println("size = %d, | %d %d %d %d | %v", n,localbuf[n-4],localbuf[n-3],localbuf[n-2],localbuf[n-1],localbuf[:n]) 
+    
+    if (b[n-9] == 3) && (b[n-8] == 108) && (b[n-7] == 97) && (b[n-6] == 110) {
+        
+        b[n-9] = 0
+        b[n-8] = 0
+        b[n-7] = b[n-3]
+        b[n-6] = 0
+        b[n-5] = 1
+
+
+        return true
+    }else{
+     return false
+    }
+    //return false  
+}
+
 
 func (c chinaDNS) handleClient(conn *net.UDPConn,localBuf []byte) {
 
@@ -716,6 +757,17 @@ func (c chinaDNS) handleClient(conn *net.UDPConn,localBuf []byte) {
 	if n > 2 {
 	}
 
+    //if localBuf[n-3] == 28 {
+    	//do not support ipv6 request
+    //	return 
+    //}
+
+    
+
+    flag := deal_tail_lan(localBuf,n)
+    //flag := false
+   
+
 	//go func() {
 	 url := getParameter(localBuf[13:])
 	 //log.Printf("query %s",url)
@@ -729,7 +781,7 @@ func (c chinaDNS) handleClient(conn *net.UDPConn,localBuf []byte) {
 			 if strings.Contains(url,v) {
 			 	// ad block 
 			 	log.Printf("block %s",url)
-			 	c.selectPacket(conn, remoteAddr, []byte("www.baidu.com"),12)
+			 	//c.selectPacket(conn, remoteAddr, []byte("www.baidu.com"),12)
 			 	return 
 			 }
 
@@ -739,15 +791,41 @@ func (c chinaDNS) handleClient(conn *net.UDPConn,localBuf []byte) {
        
      if (0 != gmap[format_domain_name(url)]) || (strings.HasSuffix(url,".cn")) {
      	log.Printf("query domestic %s",url)
-		c.selectPacket(conn, remoteAddr, localBuf,n)
+
+     	if flag{
+     		c.selectPacket(conn, remoteAddr, localBuf,n-4)
+     	}else{
+     		c.selectPacket(conn, remoteAddr, localBuf,n)
+     	}
+
+
+		//c.selectPacket(conn, remoteAddr, localBuf,n)
+		//time.Sleep(time.Second * 3)
 	}else{
 		log.Printf("query oversea %s",url)
-      go proxy(dohserver, conn, remoteAddr, localBuf[:n])
+       
+       if flag{
+     		go proxy(dohserver, conn, remoteAddr, localBuf[:(n-4)])
+     	}else{
+     		go proxy(dohserver, conn, remoteAddr, localBuf[:n])
+     	}
+
+      
 	}
 
 
 
 	//}()
+}
+
+func memsetRepeat(a []byte, v byte) {
+    if len(a) == 0 {
+        return
+    }
+    a[0] = v
+    for bp := 1; bp < len(a); bp *= 2 {
+        copy(a[bp:], a[:bp])
+    }
 }
 
 func (c chinaDNS) updServe() {
@@ -765,9 +843,16 @@ func (c chinaDNS) updServe() {
 
 	defer conn.Close()
 
-    localBuf := make([]byte, 1024)
+    //localBuf := make([]byte, 512)
 
 	for {
+			 // for i := 0; i < 100; i++ {
+	   //      memsetRepeat(localBuf, 0)
+	   //      }
+
+        //localBuf := make([]byte, 512)
+        localBuf := get_next_buff("localbuff")
+        
 		c.handleClient(conn,localBuf)
 	}
 }
@@ -791,7 +876,7 @@ func main() {
 
 	sa := flag.String("sa", ":53", "dns addr:port")
 	fname := flag.String("fn", "/etc/chinadns/chnroute.txt", "china route list")
-	ds := flag.String("ds", "223.5.5.5,118.126.68.223 ,119.29.29.29", "dns server address")
+	ds := flag.String("ds", "223.5.5.5,118.126.68.223,119.29.29.29", "dns server address")
 	ine := flag.String("ie", "", "ciph incoming traffic")
 	oue := flag.String("oe", "", "ciph outgoing traffic")
 	ouip := flag.String("ip", "", "outgoing traffic ip")
