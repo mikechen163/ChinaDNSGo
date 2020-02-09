@@ -288,7 +288,7 @@ type SafeInt struct {
 var g_pos SafeInt
 var gbuffer [MAX_BUFF][]byte
 var gmap map[string]int
-var gkeyword [2]string
+var gkeyword [3]string
 
 func newChinaDNS(fname string, sa string) *chinaDNS {
 	c := new(chinaDNS)
@@ -303,8 +303,9 @@ func newChinaDNS(fname string, sa string) *chinaDNS {
         }
     }
 
-    gkeyword[0] ="googleads.g.doubleclick.net" 
+    gkeyword[0] ="g.doubleclick.net" 
     gkeyword[1] = "adservice.google.com"
+    gkeyword[2] = "cnzz.com"
     
 
     gmap = read_china_domain()
@@ -321,7 +322,7 @@ func newChinaDNS(fname string, sa string) *chinaDNS {
 func get_next_buff(url string) []byte {
 
     g_pos.Lock()
-    log.Printf("url = %s, buffer pos = %d\n", url,g_pos.Num)
+    //log.Printf("url = %s, buffer pos = %d\n", url,g_pos.Num)
     old_pos := g_pos.Num
 			g_pos.Num += 1 
             if g_pos.Num == MAX_BUFF {
@@ -789,7 +790,7 @@ func (c chinaDNS) handleClient(conn *net.UDPConn,localBuf []byte) {
 	 
 	
        
-     if (0 != gmap[format_domain_name(url)]) || (strings.HasSuffix(url,".cn")) {
+     if (0 != gmap[format_domain_name(url)]) || (strings.HasSuffix(url,".cn")) || (strings.HasSuffix(url,"qq.com")) {
      	log.Printf("query domestic %s",url)
 
      	if flag{
